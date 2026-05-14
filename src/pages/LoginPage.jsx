@@ -1,4 +1,5 @@
 import { useState } from "react";
+import axios from "axios";
 import Brightness4Icon from "@mui/icons-material/Brightness4";
 import Brightness7Icon from "@mui/icons-material/Brightness7";
 import DashboardIcon from "@mui/icons-material/Dashboard";
@@ -10,15 +11,56 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { Link as RouterLink } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+
+import AppSnackbar from "../components/common/AppSnackbar";
 
 const LoginPage = ({ mode, onToggleMode }) => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+  const [snackbarSeverity, setSnackbarSeverity] = useState("error");
 
-  const handleSubmit = (event) => {
+  const handleCloseSnackbar = () => {
+    setSnackbarOpen(false);
+  };
+
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    // Demo screen only — no authentication or API calls.
+
+    try {
+      const formData = new FormData();
+      formData.append("username", email);
+      formData.append("password", password);
+
+      const response = await axios.post(
+        "https://user.hotelswitchboard.com/api/v1/Login/getclientuserlogindetails",
+        formData
+      );
+
+      console.log("Login API response:", response.data);
+
+
+      if (String(response?.data?.status_code) === "1") {
+        navigate("/onboarding", {
+          state: {
+            loginSuccessMessage: response?.data?.message || "Login successful."
+          }
+        });
+        return;
+      }
+
+      setSnackbarMessage(response?.data?.message || "Invalid username or password.");
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
+    } catch (error) {
+      console.error("Login API error:", error);
+      setSnackbarMessage("Unable to login. Please try again.");
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
+    }
   };
 
   return (
@@ -141,6 +183,12 @@ const LoginPage = ({ mode, onToggleMode }) => {
           </Typography>
         </Stack>
       </Paper>
+      <AppSnackbar
+        open={snackbarOpen}
+        onClose={handleCloseSnackbar}
+        message={snackbarMessage}
+        severity={snackbarSeverity}
+      />
     </Box>
   );
 };

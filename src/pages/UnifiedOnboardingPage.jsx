@@ -44,6 +44,8 @@ import { propertyService } from "../services/propertyService";
 import { unifiedOnboardingDefaults, unifiedOnboardingSchema } from "../validations/unifiedOnboardingSchema";
 import { fileToBase64 } from "../utils/file";
 
+import { useLocation } from "react-router-dom";
+
 const PMS_DETAILS_OPTIONS = ["Choice", "Redroof", "OperaCloud"];
 const REPORTS_ON_EMAIL_OPTIONS = [
   { label: "Yes", value: "Yes" },
@@ -192,13 +194,14 @@ const geocodePropertyName = async (propertyName) => {
 };
 
 const UnifiedOnboardingPage = () => {
+  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [managers, setManagers] = useState([]);
-  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
   const [emailListModalOpen, setEmailListModalOpen] = useState(false);
   const [emailInput, setEmailInput] = useState("");
   const [emailList, setEmailList] = useState([]);
+  const location = useLocation();
 
   const {
     control,
@@ -232,6 +235,7 @@ const UnifiedOnboardingPage = () => {
   const todayIsoDate = useMemo(() => new Date().toISOString().split("T")[0], []);
 
   useEffect(() => {
+
     const loadManagers = async () => {
       try {
         const managerData = await propertyService.listManagers();
@@ -251,31 +255,33 @@ const UnifiedOnboardingPage = () => {
   }, [setValue, watchedPropertyName]);
 
   useEffect(() => {
+
     // Clear geoLocation when propertyName is cleared
     if (!watchedPropertyName?.trim()) {
       setValue("geoLocation", "", { shouldValidate: false });
       return;
     }
-
-    // If geoLocation already has a value, don't auto-fill
-    if (watchedGeoLocation?.trim()) {
-      return;
+    if (location.state && location.state.loginSuccessMessage) {
+      setSnackbar({ open: true, message: location.state.loginSuccessMessage, severity: "success" });
+      // Optionally clear the state so it doesn't show again on refresh
+      window.history.replaceState({}, document.title);
     }
-
     let cancelled = false;
 
-    const timeoutId = setTimeout(async () => {
-      try {
-        const { latitude, longitude } = await geocodePropertyName(watchedPropertyName.trim());
-        if (!cancelled) {
-          setValue("geoLocation", `${latitude}, ${longitude}`, { shouldValidate: false });
+    setTimeout(() => {
+      (async () => {
+        try {
+          const { latitude, longitude } = await geocodePropertyName(watchedPropertyName.trim());
+          if (!cancelled) {
+            setValue("geoLocation", `${latitude}, ${longitude}`, { shouldValidate: false });
+          }
+        } catch {
+          const { latitude, longitude } = deriveFallbackCoordinates(watchedPropertyName.trim());
+          if (!cancelled) {
+            setValue("geoLocation", `${latitude}, ${longitude}`, { shouldValidate: false });
+          }
         }
-      } catch {
-        const { latitude, longitude } = deriveFallbackCoordinates(watchedPropertyName.trim());
-        if (!cancelled) {
-          setValue("geoLocation", `${latitude}, ${longitude}`, { shouldValidate: false });
-        }
-      }
+      })();
     }, 650);
 
     return () => {
@@ -431,6 +437,11 @@ const UnifiedOnboardingPage = () => {
         message: "Property, portfolio, and PMS details submitted successfully.",
         severity: "success",
       });
+      if (location.state && location.state.loginSuccessMessage) {
+        setSnackbar({ open: true, message: location.state.loginSuccessMessage, severity: "success" });
+        // Optionally clear the state so it doesn't show again on refresh
+        window.history.replaceState({}, document.title);
+      }
     } catch (error) {
       setSnackbar({ open: true, message: error.message || "Failed to submit onboarding.", severity: "error" });
     } finally {
