@@ -1,18 +1,17 @@
 import { useMemo, useState } from "react";
 
 import { createTheme, ThemeProvider } from "@mui/material/styles";
-
-
+import { useLocation } from "react-router-dom";
 
 import DashboardLayout from "./layouts/DashboardLayout";
 
 import AppRoutes from "./routes/AppRoutes";
 
-
-
 const App = () => {
-
+  const location = useLocation();
   const [mode, setMode] = useState("light");
+
+  const isLoginRoute = location.pathname === "/login";
 
 
 
@@ -548,24 +547,18 @@ const App = () => {
 
 
 
+  const toggleMode = () => setMode((prevMode) => (prevMode === "light" ? "dark" : "light"));
+
   return (
-
     <ThemeProvider theme={theme}>
-
-      <DashboardLayout
-
-        mode={mode}
-
-        onToggleMode={() => setMode((prevMode) => (prevMode === "light" ? "dark" : "light"))}
-
-      >
-
-        <AppRoutes />
-
-      </DashboardLayout>
-
+      {isLoginRoute ? (
+        <AppRoutes mode={mode} onToggleMode={toggleMode} />
+      ) : (
+        <DashboardLayout mode={mode} onToggleMode={toggleMode}>
+          <AppRoutes mode={mode} onToggleMode={toggleMode} />
+        </DashboardLayout>
+      )}
     </ThemeProvider>
-
   );
 
 };

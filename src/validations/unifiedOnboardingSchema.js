@@ -67,6 +67,11 @@ export const unifiedOnboardingSchema = yup.object({
   portfolioPropertyName: yup.string().required("Property is required."),
   portfolioSecondaryManager: yup.string().trim().required("Secondary Manager is required."),
   portfolioDistribution: yup.string().trim().required("Distribution is required."),
+  addPortfolioSetupCode: yup.string().trim().required("Code is required."),
+  addPortfolioSetupName: yup.string().trim().required("Name is required."),
+  addPortfolioSetupClassification: yup.string().required("Classification is required."),
+  addPortfolioSetupManagerId: yup.string().required("Manager is required."),
+  addPortfolioSetupDetail: yup.string().trim().required("Detail is required."),
 
   pmsDetailsSelection: yup.string().required("PMS Selection is required."),
   isReportsOnEmail: yup.string().oneOf(["Yes", "No"]).required("Is Reports On Email is required."),
@@ -185,6 +190,11 @@ export const unifiedOnboardingDefaults = {
   portfolioPropertyName: "",
   portfolioSecondaryManager: "",
   portfolioDistribution: "",
+  addPortfolioSetupCode: "",
+  addPortfolioSetupName: "",
+  addPortfolioSetupClassification: "",
+  addPortfolioSetupManagerId: "",
+  addPortfolioSetupDetail: "",
 
   pmsDetailsSelection: "",
   isReportsOnEmail: "",

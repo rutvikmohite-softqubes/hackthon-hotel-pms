@@ -94,6 +94,11 @@ const stepFieldMap = [
     "portfolioPropertyName",
     "portfolioSecondaryManager",
     "portfolioDistribution",
+    "addPortfolioSetupCode",
+    "addPortfolioSetupName",
+    "addPortfolioSetupClassification",
+    "addPortfolioSetupManagerId",
+    "addPortfolioSetupDetail",
   ],
   [
     "pmsDetailsSelection",
@@ -378,6 +383,9 @@ const UnifiedOnboardingPage = () => {
 
       const createdProperty = await propertyService.create(propertyPayload);
 
+      const addPortfolioManagerName =
+        managerOptions.find((item) => item.value === values.addPortfolioSetupManagerId)?.label || "";
+
       const portfolioPayload = {
         code: values.portfolioCode,
         name: values.portfolioName,
@@ -387,6 +395,13 @@ const UnifiedOnboardingPage = () => {
         propertyId: createdProperty.id,
         secondaryManager: values.portfolioSecondaryManager,
         distribution: values.portfolioDistribution,
+        portfolioSetupAddOn: {
+          code: values.addPortfolioSetupCode,
+          name: values.addPortfolioSetupName,
+          classification: values.addPortfolioSetupClassification,
+          manager: addPortfolioManagerName,
+          detail: values.addPortfolioSetupDetail,
+        },
       };
       await portfolioService.create(portfolioPayload);
 
@@ -531,29 +546,66 @@ const UnifiedOnboardingPage = () => {
   );
 
   const renderPortfolioStep = () => (
+    <Stack spacing={2.5}>
       <FormSection title="Portfolio Setup">
-      <Box
-        sx={{
-          display: "grid",
-          gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" },
-          gap: 2,
-        }}
-      >
-        <TextInput name="portfolioCode" control={control} label="Portfolio Code" />
-        <TextInput name="portfolioName" control={control} label="Portfolio Name" />
-        <SelectInput name="portfolioClassification" control={control} label="Classification" options={CLASSIFICATION_OPTIONS} />
-        <TextInput name="portfolioManager" control={control} label="Primary Manager" />
-        <SelectInput name="portfolioModule" control={control} label="Module" options={MODULE_OPTIONS} />
-        <SelectInput
-          name="portfolioPropertyName"
-          control={control}
-          label="Property"
-          options={watchedPropertyName ? [watchedPropertyName] : []}
-        />
-        <TextInput name="portfolioSecondaryManager" control={control} label="Secondary Manager" />
-        <TextInput name="portfolioDistribution" control={control} label="Distribution" />
-      </Box>
-    </FormSection>
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" },
+            gap: 2,
+          }}
+        >
+          <TextInput name="portfolioCode" control={control} label="Portfolio Code" />
+          <TextInput name="portfolioName" control={control} label="Portfolio Name" />
+          <SelectInput
+            name="portfolioClassification"
+            control={control}
+            label="Classification"
+            options={CLASSIFICATION_OPTIONS}
+          />
+          <TextInput name="portfolioManager" control={control} label="Primary Manager" />
+          <SelectInput name="portfolioModule" control={control} label="Module" options={MODULE_OPTIONS} />
+          <SelectInput
+            name="portfolioPropertyName"
+            control={control}
+            label="Property"
+            options={watchedPropertyName ? [watchedPropertyName] : []}
+          />
+          <TextInput name="portfolioSecondaryManager" control={control} label="Secondary Manager" />
+          <Box sx={{ gridColumn: { xs: "1", md: "1 / -1" } }}>
+            <TextInput name="portfolioDistribution" control={control} label="Distribution" multiline minRows={2} />
+          </Box>
+        </Box>
+      </FormSection>
+
+      <FormSection title="Add Portfolio Setup">
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0, 1fr))" },
+            gap: 2,
+          }}
+        >
+          <TextInput name="addPortfolioSetupCode" control={control} label="Code" />
+          <TextInput name="addPortfolioSetupName" control={control} label="Name" />
+          <SelectInput
+            name="addPortfolioSetupClassification"
+            control={control}
+            label="Classification"
+            options={CLASSIFICATION_OPTIONS}
+          />
+          <SelectInput
+            name="addPortfolioSetupManagerId"
+            control={control}
+            label="Manager"
+            options={managerOptions}
+          />
+          <Box sx={{ gridColumn: { xs: "1", md: "1 / -1" } }}>
+            <TextInput name="addPortfolioSetupDetail" control={control} label="Detail" multiline minRows={3} />
+          </Box>
+        </Box>
+      </FormSection>
+    </Stack>
   );
 
   const renderPmsDetailsStep = () => (
@@ -644,6 +696,12 @@ const UnifiedOnboardingPage = () => {
           <Grid item xs={12} md={4}><Typography variant="body2" color="text.secondary">Manager</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{managerOptions.find((item) => item.value === values.managerId)?.label || "-"}</Typography></Grid>
           <Grid item xs={12} md={4}><Typography variant="body2" color="text.secondary">Portfolio</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{values.portfolioName || "-"}</Typography></Grid>
           <Grid item xs={12} md={4}><Typography variant="body2" color="text.secondary">Portfolio Module</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{values.portfolioModule || "-"}</Typography></Grid>
+          <Grid item xs={12} md={4}><Typography variant="body2" color="text.secondary">Distribution</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{values.portfolioDistribution || "-"}</Typography></Grid>
+          <Grid item xs={12} md={4}><Typography variant="body2" color="text.secondary">Add setup — Code</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{values.addPortfolioSetupCode || "-"}</Typography></Grid>
+          <Grid item xs={12} md={4}><Typography variant="body2" color="text.secondary">Add setup — Name</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{values.addPortfolioSetupName || "-"}</Typography></Grid>
+          <Grid item xs={12} md={4}><Typography variant="body2" color="text.secondary">Add setup — Manager</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{managerOptions.find((item) => item.value === values.addPortfolioSetupManagerId)?.label || "-"}</Typography></Grid>
+          <Grid item xs={12} md={4}><Typography variant="body2" color="text.secondary">Add setup — Classification</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{values.addPortfolioSetupClassification || "-"}</Typography></Grid>
+          <Grid item xs={12} md={8}><Typography variant="body2" color="text.secondary">Add setup — Detail</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{values.addPortfolioSetupDetail || "-"}</Typography></Grid>
           <Grid item xs={12} md={4}><Typography variant="body2" color="text.secondary">PMS Details Selection</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{values.pmsDetailsSelection || "-"}</Typography></Grid>
           <Grid item xs={12} md={4}><Typography variant="body2" color="text.secondary">Reports On Email</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{values.isReportsOnEmail || "-"}</Typography></Grid>
         </Grid>
