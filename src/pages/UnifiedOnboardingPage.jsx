@@ -9,6 +9,7 @@ import Checkbox from "@mui/material/Checkbox";
 import Divider from "@mui/material/Divider";
 import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
+import MenuItem from "@mui/material/MenuItem";
 import Modal from "@mui/material/Modal";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -20,6 +21,7 @@ import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
+import TablePagination from "@mui/material/TablePagination";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
@@ -46,7 +48,10 @@ import {
 } from "../data/constants";
 import { TIMEZONES } from "../data/timezones";
 import { portfolioService } from "../services/portfolioService";
+import { predictHqService } from "../services/predictHqService";
 import { propertyService } from "../services/propertyService";
+import { userService } from "../services/userService";
+import { configurationService } from "../services/configurationService";
 import { unifiedOnboardingDefaults } from "../validations/unifiedOnboardingSchema";
 import { fileToBase64 } from "../utils/file";
 
@@ -74,85 +79,7 @@ const eventTableColumns = [
   { id: "endDate", label: "End Date" },
 ];
 
-const eventTableRows = [
-  { id: "evt-001", name: "New Year's Day", type: "Holiday", impact: "High", startDate: "01/01/2026", endDate: "01/01/2026" },
-  { id: "evt-002", name: "Independence Day", type: "Holiday", impact: "High", startDate: "07/04/2026", endDate: "07/04/2026" },
-  { id: "evt-003", name: "Veterans Day", type: "Holiday", impact: "Mid", startDate: "11/11/2026", endDate: "11/11/2026" },
-  { id: "evt-004", name: "Thanksgiving", type: "Holiday", impact: "High", startDate: "11/26/2026", endDate: "11/26/2026" },
-  {
-    id: "evt-005",
-    name: "Washington's Birthday - Long Weekend",
-    type: "Holiday",
-    impact: "Mid",
-    startDate: "02/14/2026",
-    endDate: "02/16/2026",
-  },
-  {
-    id: "evt-006",
-    name: "Memorial Day - Long Weekend",
-    type: "Holiday",
-    impact: "High",
-    startDate: "05/23/2026",
-    endDate: "05/25/2026",
-  },
-  {
-    id: "evt-007",
-    name: "Juneteenth - Long Weekend",
-    type: "Holiday",
-    impact: "Mid",
-    startDate: "06/19/2026",
-    endDate: "06/21/2026",
-  },
-  {
-    id: "evt-008",
-    name: "Labor Day - Long Weekend",
-    type: "Holiday",
-    impact: "Mid",
-    startDate: "09/05/2026",
-    endDate: "09/07/2026",
-  },
-  { id: "evt-009", name: "Oak Brook Home Show", type: "Expos", impact: "-", startDate: "02/14/2026", endDate: "02/15/2026" },
-  {
-    id: "evt-010",
-    name: "Construction Expo & Safety Conference",
-    type: "Expos",
-    impact: "-",
-    startDate: "03/02/2026",
-    endDate: "03/04/2026",
-  },
-  {
-    id: "evt-011",
-    name: "Body Mind Spirit Celebration",
-    type: "Expos",
-    impact: "-",
-    startDate: "03/07/2026",
-    endDate: "03/09/2026",
-  },
-  {
-    id: "evt-012",
-    name: "Riot Fest (Chicago) at Douglass Park",
-    type: "Festivals",
-    impact: "-",
-    startDate: "09/19/2026",
-    endDate: "09/20/2026",
-  },
-  {
-    id: "evt-013",
-    name: "Meet the SeatGeek Sidekicks - Effie",
-    type: "Sports",
-    impact: "-",
-    startDate: "01/02/2026",
-    endDate: "01/02/2026",
-  },
-  {
-    id: "evt-014",
-    name: "TESTING ONLY: Meet the SeatGeek Sidekicks - K6 Load Test",
-    type: "Sports",
-    impact: "-",
-    startDate: "01/02/2026",
-    endDate: "01/02/2026",
-  },
-];
+const impactOptions = ["High", "Mid", "Low"];
 
 const stepFieldMap = [
   [
@@ -299,6 +226,18 @@ const UnifiedOnboardingPage = () => {
   const [emailInput, setEmailInput] = useState("");
   const [emailList, setEmailList] = useState([]);
   const [selectedEventIds, setSelectedEventIds] = useState([]);
+  const [eventRows, setEventRows] = useState([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+  const [lastEventFetchKey, setLastEventFetchKey] = useState("");
+  const [eventsPage, setEventsPage] = useState(0);
+  const [eventsRowsPerPage, setEventsRowsPerPage] = useState(10);
+  const [configTerms, setConfigTerms] = useState({});
+  const [portfolioRows, setPortfolioRows] = useState([
+    { id: 1, module: "", property: "", managerId: "", distribution: [] },
+  ]);
+  const [distributionModalOpen, setDistributionModalOpen] = useState(false);
+  const [activeDistributionRowId, setActiveDistributionRowId] = useState(null);
+  const [distributionInput, setDistributionInput] = useState("");
   const location = useLocation();
 
   const {
@@ -317,16 +256,17 @@ const UnifiedOnboardingPage = () => {
   });
 
   const watchedPropertyName = watch("propertyName");
-  const watchedPmsDetailsSelection = watch("pmsDetailsSelection");
-  const watchedIsReportsOnEmail = watch("isReportsOnEmail");
+  const watchedGeoLocation = watch("geoLocation");
+  const watchedEventRadius = watch("eventRadius");
+  const watchedPms = watch("pms");
 
   const isOperaCloud = useMemo(
-    () => String(watchedPmsDetailsSelection || "").trim().toLowerCase().replace(/\s+/g, "") === "operacloud",
-    [watchedPmsDetailsSelection]
+    () => String(watchedPms || "").trim().toLowerCase().replace(/\s+/g, "") === "operacloud",
+    [watchedPms]
   );
   const isChoice = useMemo(
-    () => String(watchedPmsDetailsSelection || "").trim().toLowerCase() === "choice",
-    [watchedPmsDetailsSelection]
+    () => String(watchedPms || "").trim().toLowerCase() === "choice",
+    [watchedPms]
   );
   const todayIsoDate = useMemo(() => new Date().toISOString().split("T")[0], []);
 
@@ -334,14 +274,36 @@ const UnifiedOnboardingPage = () => {
 
     const loadManagers = async () => {
       try {
-        const managerData = await propertyService.listManagers();
+        const managerData = await userService.listManagers();
         setManagers(managerData);
       } catch (error) {
-        setSnackbar({ open: true, message: error.message || "Failed to load managers.", severity: "error" });
+        console.error("Failed to load managers from User/getlist:", error);
+        // Fallback to the existing mock managers service so the UI still works.
+        try {
+          const fallback = await propertyService.listManagers();
+          setManagers(fallback);
+        } catch (fallbackError) {
+          setSnackbar({
+            open: true,
+            message: fallbackError.message || error.message || "Failed to load managers.",
+            severity: "error",
+          });
+        }
       }
     };
 
     loadManagers();
+
+    const loadConfigTerms = async () => {
+      try {
+        const grouped = await configurationService.getTermsByCategories();
+        setConfigTerms(grouped);
+      } catch (error) {
+        console.error("Failed to load configuration terms:", error);
+      }
+    };
+
+    loadConfigTerms();
   }, []);
 
   useEffect(() => {
@@ -382,18 +344,14 @@ const UnifiedOnboardingPage = () => {
   }, [setValue, watchedPropertyName]);
 
   useEffect(() => {
-    if (isChoice && watchedIsReportsOnEmail !== "No") {
-      setValue("isReportsOnEmail", "No", { shouldValidate: false });
-      return;
-    }
-
-    if (isOperaCloud && watchedIsReportsOnEmail !== "Yes") {
-      setValue("isReportsOnEmail", "Yes", { shouldValidate: false });
-    }
-  }, [isChoice, isOperaCloud, setValue, watchedIsReportsOnEmail]);
+    // Mirror the Step 1 PMS value into the PMS Details selection so the
+    // existing payload/review screens continue to work.
+    setValue("pmsDetailsSelection", watchedPms || "", { shouldValidate: false });
+  }, [setValue, watchedPms]);
 
   useEffect(() => {
-    if (watchedIsReportsOnEmail === "No") {
+    if (isChoice) {
+      // Choice flow uses username/password/twilio + reservation/occupancy dates.
       setValue("reportsReceiverEmail", "", { shouldValidate: false });
       setValue("yourEmail", "", { shouldValidate: false });
       setValue("reservationFileLabelName", "", { shouldValidate: false });
@@ -402,41 +360,196 @@ const UnifiedOnboardingPage = () => {
       return;
     }
 
-    setValue("reservationStartDate", "", { shouldValidate: false });
-    setValue("reservationEndDate", "", { shouldValidate: false });
-    setValue("occupancyStartDate", "", { shouldValidate: false });
-    setValue("occupancyEndDate", "", { shouldValidate: false });
-
-    if (!isOperaCloud) {
-      setValue("reportsReceiverEmail", "", { shouldValidate: false });
-      setValue("yourEmail", "", { shouldValidate: false });
-      setValue("reservationFileLabelName", "", { shouldValidate: false });
-      setValue("occupancyFileLabelName", "", { shouldValidate: false });
-      setValue("cancellationFileLabelName", "", { shouldValidate: false });
+    if (isOperaCloud) {
+      // OperaCloud flow uses email/file label fields, not the dates or Choice creds.
+      setValue("reservationStartDate", "", { shouldValidate: false });
+      setValue("reservationEndDate", "", { shouldValidate: false });
+      setValue("occupancyStartDate", "", { shouldValidate: false });
+      setValue("occupancyEndDate", "", { shouldValidate: false });
+      setValue("pmsUsername", "", { shouldValidate: false });
+      setValue("pmsPassword", "", { shouldValidate: false });
+      setValue("pmsTwilioNumber", "", { shouldValidate: false });
+      return;
     }
-  }, [isOperaCloud, setValue, watchedIsReportsOnEmail]);
+
+    // For any other PMS, clear the flow-specific fields.
+    setValue("pmsUsername", "", { shouldValidate: false });
+    setValue("pmsPassword", "", { shouldValidate: false });
+    setValue("pmsTwilioNumber", "", { shouldValidate: false });
+    setValue("reportsReceiverEmail", "", { shouldValidate: false });
+    setValue("yourEmail", "", { shouldValidate: false });
+    setValue("reservationFileLabelName", "", { shouldValidate: false });
+    setValue("occupancyFileLabelName", "", { shouldValidate: false });
+    setValue("cancellationFileLabelName", "", { shouldValidate: false });
+  }, [isChoice, isOperaCloud, setValue]);
 
   const managerOptions = useMemo(
     () => managers.map((manager) => ({ label: manager.name, value: manager.id })),
     [managers]
   );
 
-  const selectedEvents = useMemo(
-    () => eventTableRows.filter((row) => selectedEventIds.includes(row.id)),
-    [selectedEventIds]
+  const brandOptions = useMemo(
+    () => (configTerms.Brand?.length ? configTerms.Brand : BRAND_OPTIONS),
+    [configTerms]
+  );
+  const franchiseOptions = useMemo(
+    () => (configTerms.Frenchise?.length ? configTerms.Frenchise : FRANCHISE_OPTIONS),
+    [configTerms]
+  );
+  const pmsOptions = useMemo(
+    () => (configTerms.PMS?.length ? configTerms.PMS : PMS_OPTIONS),
+    [configTerms]
+  );
+  const pmsTypeOptions = useMemo(
+    () => (configTerms["PMS Type"]?.length ? configTerms["PMS Type"] : PMS_TYPE_OPTIONS),
+    [configTerms]
+  );
+  const chainOptions = useMemo(
+    () => (configTerms.Chain?.length ? configTerms.Chain : CHAIN_OPTIONS),
+    [configTerms]
+  );
+  const currencyOptions = useMemo(
+    () => (configTerms.Currency?.length ? configTerms.Currency : CURRENCY_OPTIONS),
+    [configTerms]
+  );
+  const timezoneOptions = useMemo(
+    () => (configTerms.Timezone?.length ? configTerms.Timezone : TIMEZONES),
+    [configTerms]
+  );
+  const classificationOptions = useMemo(
+    () => (configTerms.Classification?.length ? configTerms.Classification : CLASSIFICATION_OPTIONS),
+    [configTerms]
   );
 
-  const allEventsSelected = selectedEventIds.length > 0 && selectedEventIds.length === eventTableRows.length;
-  const partiallySelected = selectedEventIds.length > 0 && selectedEventIds.length < eventTableRows.length;
+  const propertyRowOptions = useMemo(() => {
+    const name = (watchedPropertyName || "").trim();
+    return name ? [{ label: name, value: name }] : [];
+  }, [watchedPropertyName]);
+
+  // When the property name from step 1 changes, sync the dropdown default
+  // selection for every portfolio row that hasn't been manually changed yet.
+  useEffect(() => {
+    const name = (watchedPropertyName || "").trim();
+    setPortfolioRows((prev) =>
+      prev.map((row) =>
+        !row.property || row.property !== name ? { ...row, property: name } : row
+      )
+    );
+  }, [watchedPropertyName]);
+
+  const updatePortfolioRow = (id, field, value) => {
+    setPortfolioRows((prev) =>
+      prev.map((row) => (row.id === id ? { ...row, [field]: value } : row))
+    );
+  };
+
+  const addPortfolioRow = () => {
+    setPortfolioRows((prev) => [
+      ...prev,
+      {
+        id: prev.length ? Math.max(...prev.map((r) => r.id)) + 1 : 1,
+        module: "",
+        property: (watchedPropertyName || "").trim(),
+        managerId: "",
+        distribution: [],
+      },
+    ]);
+  };
+
+  const removePortfolioRow = (id) => {
+    setPortfolioRows((prev) => (prev.length > 1 ? prev.filter((row) => row.id !== id) : prev));
+  };
+
+  const openDistributionModal = (rowId) => {
+    setActiveDistributionRowId(rowId);
+    setDistributionInput("");
+    setDistributionModalOpen(true);
+  };
+
+  const activeDistributionRow = portfolioRows.find((row) => row.id === activeDistributionRowId);
+
+  const selectedEvents = useMemo(
+    () => eventRows.filter((row) => selectedEventIds.includes(row.id)),
+    [eventRows, selectedEventIds]
+  );
+
+  const allEventsSelected = selectedEventIds.length > 0 && selectedEventIds.length === eventRows.length;
+  const partiallySelected = selectedEventIds.length > 0 && selectedEventIds.length < eventRows.length;
+
+  const handleFetchEvents = async () => {
+    if (!watchedPropertyName?.trim() || !watchedGeoLocation?.trim()) {
+      setSnackbar({
+        open: true,
+        message: "Property name and geo location are required before loading events.",
+        severity: "error",
+      });
+      return;
+    }
+
+    try {
+      setEventsLoading(true);
+
+      const events = await predictHqService.fetchEventsByProperty({
+        propertyName: watchedPropertyName,
+        geoLocation: watchedGeoLocation,
+        eventRadius: watchedEventRadius,
+      });
+
+      setEventRows(events);
+      setSelectedEventIds([]);
+      setEventsPage(0);
+      setSnackbar({
+        open: true,
+        message: events.length ? `Loaded ${events.length} events from PredictHQ.` : "No events found for this location.",
+        severity: "success",
+      });
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error.message || "Failed to fetch PredictHQ events.",
+        severity: "error",
+      });
+    } finally {
+      setEventsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeStep !== 2) {
+      return;
+    }
+
+    const fetchKey = `${watchedPropertyName || ""}|${watchedGeoLocation || ""}|${watchedEventRadius || ""}`;
+    if (!watchedPropertyName?.trim() || !watchedGeoLocation?.trim()) {
+      return;
+    }
+
+    if (fetchKey === lastEventFetchKey) {
+      return;
+    }
+
+    setLastEventFetchKey(fetchKey);
+    handleFetchEvents();
+  }, [
+    activeStep,
+    watchedPropertyName,
+    watchedGeoLocation,
+    watchedEventRadius,
+    lastEventFetchKey,
+  ]);
 
   const handleToggleAllEvents = (isChecked) => {
-    setSelectedEventIds(isChecked ? eventTableRows.map((event) => event.id) : []);
+    setSelectedEventIds(isChecked ? eventRows.map((event) => event.id) : []);
   };
 
   const handleToggleEvent = (eventId) => {
     setSelectedEventIds((prev) =>
       prev.includes(eventId) ? prev.filter((id) => id !== eventId) : [...prev, eventId]
     );
+  };
+
+  const handleImpactChange = (eventId, impact) => {
+    setEventRows((prev) => prev.map((event) => (event.id === eventId ? { ...event, impact } : event)));
   };
 
   const handleNext = async () => {
@@ -543,6 +656,8 @@ const UnifiedOnboardingPage = () => {
 
       reset(unifiedOnboardingDefaults);
       setSelectedEventIds([]);
+      setEventRows([]);
+      setLastEventFetchKey("");
       setActiveStep(0);
       setSnackbar({
         open: true,
@@ -587,14 +702,14 @@ const UnifiedOnboardingPage = () => {
                 gap: 2,
               }}
             >
-              <SelectInput name="brand" control={control} label="Brand" options={BRAND_OPTIONS} />
-              <SelectInput name="franchise" control={control} label="Franchise" options={FRANCHISE_OPTIONS} />
-              <SelectInput name="pms" control={control} label="PMS" options={PMS_OPTIONS} />
-              <SelectInput name="pmsType" control={control} label="PMS Type" options={PMS_TYPE_OPTIONS} />
-              <SelectInput name="chain" control={control} label="Chain" options={CHAIN_OPTIONS} />
-              <SelectInput name="classification" control={control} label="Classification" options={CLASSIFICATION_OPTIONS} />
-              <SelectInput name="timezone" control={control} label="Timezone" options={TIMEZONES} />
-              <SelectInput name="currency" control={control} label="Currency" options={CURRENCY_OPTIONS} />
+              <SelectInput name="brand" control={control} label="Brand" options={brandOptions} />
+              <SelectInput name="franchise" control={control} label="Franchise" options={franchiseOptions} />
+              <SelectInput name="pms" control={control} label="PMS" options={pmsOptions} />
+              <SelectInput name="pmsType" control={control} label="PMS Type" options={pmsTypeOptions} />
+              <SelectInput name="chain" control={control} label="Chain" options={chainOptions} />
+              <SelectInput name="classification" control={control} label="Classification" options={classificationOptions} />
+              <SelectInput name="timezone" control={control} label="Timezone" options={timezoneOptions} />
+              <SelectInput name="currency" control={control} label="Currency" options={currencyOptions} />
               <SelectInput name="managerId" control={control} label="Manager" options={managerOptions} />
               <SelectInput name="systemType" control={control} label="System Type" options={SYSTEM_TYPE_OPTIONS} />
               <TextInput name="webUrl" control={control} label="Web URL" />
@@ -679,7 +794,7 @@ const UnifiedOnboardingPage = () => {
             name="addPortfolioSetupClassification"
             control={control}
             label="Classification"
-            options={CLASSIFICATION_OPTIONS}
+            options={classificationOptions}
           />
           <SelectInput
             name="addPortfolioSetupManagerId"
@@ -691,6 +806,124 @@ const UnifiedOnboardingPage = () => {
             <TextInput name="addPortfolioSetupDetail" control={control} label="Detail" multiline minRows={3} />
           </Box>
         </Box>
+      </FormSection>
+
+      <FormSection title="Portfolio Modules">
+        <TableContainer component={Paper} variant="outlined" sx={{ overflowX: "auto" }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ backgroundColor: (theme) => theme.palette.action.hover }}>
+                <TableCell sx={{ fontWeight: 700, textTransform: "uppercase", minWidth: 180 }}>
+                  Module
+                </TableCell>
+                <TableCell sx={{ fontWeight: 700, textTransform: "uppercase", minWidth: 220 }}>
+                  Property
+                </TableCell>
+                <TableCell sx={{ fontWeight: 700, textTransform: "uppercase", minWidth: 220 }}>
+                  Manager
+                </TableCell>
+                <TableCell sx={{ fontWeight: 700, textTransform: "uppercase", minWidth: 180 }}>
+                  Distribution
+                </TableCell>
+                <TableCell sx={{ fontWeight: 700, textTransform: "uppercase", width: 100 }} align="center">
+                  Action
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {portfolioRows.map((row) => (
+                <TableRow key={row.id}>
+                  <TableCell>
+                    <TextField
+                      select
+                      fullWidth
+                      size="small"
+                      value={row.module}
+                      onChange={(e) => updatePortfolioRow(row.id, "module", e.target.value)}
+                      SelectProps={{ displayEmpty: true }}
+                    >
+                      <MenuItem value="">
+                        <em>Select</em>
+                      </MenuItem>
+                      {MODULE_OPTIONS.map((option) => {
+                        const value = typeof option === "string" ? option : option.value;
+                        const label = typeof option === "string" ? option : option.label;
+                        return (
+                          <MenuItem key={value} value={value}>
+                            {label}
+                          </MenuItem>
+                        );
+                      })}
+                    </TextField>
+                  </TableCell>
+                  <TableCell>
+                    <TextField
+                      select
+                      fullWidth
+                      size="small"
+                      value={row.property}
+                      onChange={(e) => updatePortfolioRow(row.id, "property", e.target.value)}
+                      SelectProps={{ displayEmpty: true }}
+                    >
+                      <MenuItem value="">
+                        <em>Select Hotels</em>
+                      </MenuItem>
+                      {propertyRowOptions.map((option) => (
+                        <MenuItem key={option.value} value={option.value}>
+                          {option.label}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </TableCell>
+                  <TableCell>
+                    <TextField
+                      select
+                      fullWidth
+                      size="small"
+                      value={row.managerId}
+                      onChange={(e) => updatePortfolioRow(row.id, "managerId", e.target.value)}
+                      SelectProps={{ displayEmpty: true }}
+                    >
+                      <MenuItem value="">
+                        <em>Select</em>
+                      </MenuItem>
+                      {managerOptions.map((option) => (
+                        <MenuItem key={option.value} value={option.value}>
+                          {option.label}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => openDistributionModal(row.id)}
+                      startIcon={<Typography component="span">+</Typography>}
+                    >
+                      Add({row.distribution.length})
+                    </Button>
+                  </TableCell>
+                  <TableCell align="center">
+                    <IconButton
+                      size="small"
+                      onClick={() => removePortfolioRow(row.id)}
+                      disabled={portfolioRows.length <= 1}
+                      aria-label="Remove row"
+                    >
+                      <CloseIcon fontSize="small" />
+                    </IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        <Stack direction="row" justifyContent="flex-start" sx={{ mt: 1.5 }}>
+          <Button variant="text" onClick={addPortfolioRow}>
+            + Add Row
+          </Button>
+        </Stack>
       </FormSection>
     </Stack>
   );
@@ -705,16 +938,63 @@ const UnifiedOnboardingPage = () => {
             gap: 2,
           }}
         >
-          <SelectInput name="pmsDetailsSelection" control={control} label="PMS Selection" options={PMS_DETAILS_OPTIONS} />
-          <RadioGroupInput
-            name="isReportsOnEmail"
-            control={control}
-            label="Is Reports On Email"
-            options={REPORTS_ON_EMAIL_OPTIONS}
+          <TextField
+            label="PMS Selection"
+            value={watchedPms || ""}
+            InputProps={{ readOnly: true }}
+            placeholder="Set in Step 1 (Property Information)"
+            fullWidth
+            size="small"
           />
         </Box>
 
-        {watchedIsReportsOnEmail === "No" && (
+        {isChoice && (
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" },
+              gap: 2,
+            }}
+          >
+            <TextInput name="pmsUsername" control={control} label="Username" />
+            <TextInput
+              name="pmsPassword"
+              control={control}
+              label="Password"
+              type="password"
+            />
+            <TextInput name="pmsTwilioNumber" control={control} label="Twilio Number For OTP" />
+            <TextInput
+              name="reservationStartDate"
+              control={control}
+              label="Reservation Start Date"
+              type="date"
+              inputProps={{ max: todayIsoDate }}
+            />
+            <TextInput
+              name="reservationEndDate"
+              control={control}
+              label="Reservation End Date"
+              type="date"
+              inputProps={{ max: todayIsoDate }}
+            />
+            <Box />
+            <TextInput
+              name="occupancyStartDate"
+              control={control}
+              label="Occupancy Start Date"
+              type="date"
+            />
+            <TextInput
+              name="occupancyEndDate"
+              control={control}
+              label="Occupancy End Date"
+              type="date"
+            />
+          </Box>
+        )}
+
+        {!isChoice && !isOperaCloud && watchedPms && (
           <Box
             sx={{
               display: "grid",
@@ -752,7 +1032,7 @@ const UnifiedOnboardingPage = () => {
           </Box>
         )}
 
-        {watchedIsReportsOnEmail === "Yes" && isOperaCloud && (
+        {isOperaCloud && (
           <Box
             sx={{
               display: "grid",
@@ -775,9 +1055,14 @@ const UnifiedOnboardingPage = () => {
   const renderEventsStep = () => (
     <FormSection title="Events">
       <Stack spacing={1.5}>
-        <Typography variant="body2" color="text.secondary">
-          Selected events: {selectedEventIds.length}
-        </Typography>
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+          <Typography variant="body2" color="text.secondary">
+            Selected events: {selectedEventIds.length}
+          </Typography>
+          <Button variant="outlined" onClick={handleFetchEvents} disabled={eventsLoading}>
+            {eventsLoading ? "Loading..." : "Reload Events"}
+          </Button>
+        </Box>
 
         <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
           <Table size="small">
@@ -799,7 +1084,9 @@ const UnifiedOnboardingPage = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {eventTableRows.map((eventRow) => {
+              {eventRows
+                .slice(eventsPage * eventsRowsPerPage, eventsPage * eventsRowsPerPage + eventsRowsPerPage)
+                .map((eventRow) => {
                 const isChecked = selectedEventIds.includes(eventRow.id);
 
                 return (
@@ -813,14 +1100,47 @@ const UnifiedOnboardingPage = () => {
                     </TableCell>
                     <TableCell>{eventRow.name}</TableCell>
                     <TableCell>{eventRow.type}</TableCell>
-                    <TableCell>{eventRow.impact}</TableCell>
+                    <TableCell>
+                      <TextField
+                        select
+                        size="small"
+                        value={eventRow.impact}
+                        onChange={(event) => handleImpactChange(eventRow.id, event.target.value)}
+                        sx={{ minWidth: 100 }}
+                      >
+                        {impactOptions.map((impact) => (
+                          <MenuItem key={impact} value={impact}>
+                            {impact}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </TableCell>
                     <TableCell>{eventRow.startDate}</TableCell>
                     <TableCell>{eventRow.endDate}</TableCell>
                   </TableRow>
                 );
               })}
+              {!eventRows.length && (
+                <TableRow>
+                  <TableCell colSpan={eventTableColumns.length + 1} align="center">
+                    {eventsLoading ? "Loading events..." : "No events available."}
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
+          <TablePagination
+            component="div"
+            count={eventRows.length}
+            page={eventsPage}
+            onPageChange={(_, newPage) => setEventsPage(newPage)}
+            rowsPerPage={eventsRowsPerPage}
+            onRowsPerPageChange={(event) => {
+              setEventsRowsPerPage(parseInt(event.target.value, 10));
+              setEventsPage(0);
+            }}
+            rowsPerPageOptions={[5, 10, 25, 50]}
+          />
         </TableContainer>
       </Stack>
     </FormSection>
@@ -901,6 +1221,8 @@ const UnifiedOnboardingPage = () => {
                     onClick={() => {
                       reset(unifiedOnboardingDefaults);
                       setSelectedEventIds([]);
+                      setEventRows([]);
+                      setLastEventFetchKey("");
                       setActiveStep(0);
                     }}
                   >
@@ -995,6 +1317,97 @@ const UnifiedOnboardingPage = () => {
               variant="outlined" 
               onClick={() => setEmailListModalOpen(false)}
             >
+              Cancel
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+
+      <Modal
+        open={distributionModalOpen}
+        onClose={() => setDistributionModalOpen(false)}
+        aria-labelledby="distribution-modal-title"
+      >
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: 400,
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            p: 4,
+            borderRadius: 0,
+          }}
+        >
+          <Typography id="distribution-modal-title" variant="h6" component="h2" sx={{ mb: 3 }}>
+            Distribution
+          </Typography>
+
+          <Box sx={{ display: "flex", gap: 1, mb: 3 }}>
+            <TextField
+              fullWidth
+              placeholder="Distribution channel"
+              value={distributionInput}
+              onChange={(e) => setDistributionInput(e.target.value)}
+              variant="outlined"
+              size="small"
+            />
+            <Button
+              variant="contained"
+              onClick={() => {
+                const value = distributionInput.trim();
+                if (!value || activeDistributionRowId == null) return;
+                setPortfolioRows((prev) =>
+                  prev.map((row) =>
+                    row.id === activeDistributionRowId
+                      ? { ...row, distribution: [...row.distribution, value] }
+                      : row
+                  )
+                );
+                setDistributionInput("");
+              }}
+            >
+              Add
+            </Button>
+          </Box>
+
+          {activeDistributionRow && activeDistributionRow.distribution.length > 0 && (
+            <Box sx={{ mb: 3, maxHeight: 200, overflow: "auto" }}>
+              {activeDistributionRow.distribution.map((item, index) => (
+                <Box
+                  key={`${item}-${index}`}
+                  sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", py: 1 }}
+                >
+                  <Typography variant="body2">{item}</Typography>
+                  <IconButton
+                    size="small"
+                    onClick={() =>
+                      setPortfolioRows((prev) =>
+                        prev.map((row) =>
+                          row.id === activeDistributionRowId
+                            ? {
+                                ...row,
+                                distribution: row.distribution.filter((_, i) => i !== index),
+                              }
+                            : row
+                        )
+                      )
+                    }
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              ))}
+            </Box>
+          )}
+
+          <Box sx={{ display: "flex", justifyContent: "space-between", mt: 3 }}>
+            <Button variant="contained" onClick={() => setDistributionModalOpen(false)}>
+              Done
+            </Button>
+            <Button variant="outlined" onClick={() => setDistributionModalOpen(false)}>
               Cancel
             </Button>
           </Box>

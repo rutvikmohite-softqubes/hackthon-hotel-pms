@@ -44,6 +44,11 @@ const LoginPage = ({ mode, onToggleMode }) => {
 
 
       if (String(response?.data?.status_code) === "1") {
+        try {
+          localStorage.setItem("hotelPms.auth", JSON.stringify(response.data));
+        } catch (storageError) {
+          console.error("Failed to persist auth response:", storageError);
+        }
         navigate("/onboarding");
         return;
       }

@@ -74,13 +74,21 @@ npm install
 npm run dev
 ```
 
-4. Build for production:
+4. Configure PredictHQ token for Step 3 Events:
+
+Create a `.env` file in the project root and add:
+
+```bash
+VITE_PREDICTHQ_TOKEN=your_predicthq_api_token
+```
+
+5. Build for production:
 
 ```bash
 npm run build
 ```
 
-5. Preview production build:
+6. Preview production build:
 
 ```bash
 npm run preview

@@ -145,7 +145,14 @@ const PortfolioSetupPage = () => {
                   <Grid item xs={12} md={3}><SelectInput name="classification" control={control} label="Classification" options={CLASSIFICATION_OPTIONS} /></Grid>
                   <Grid item xs={12} md={3}><TextInput name="manager" control={control} label="Primary Manager" /></Grid>
                   <Grid item xs={12} md={4}><SelectInput name="module" control={control} label="Module" options={MODULE_OPTIONS} /></Grid>
-                  <Grid item xs={12} md={4}><SelectInput name="propertyId" control={control} label="Property" options={propertyOptions} /></Grid>
+                  <Grid item xs={12} md={4}>
+                    <SelectInput
+                      name="propertyId"
+                      control={control}
+                      label="Property Name"
+                      options={propertyOptions}
+                    />
+                  </Grid>
                   <Grid item xs={12} md={4}><TextInput name="secondaryManager" control={control} label="Secondary Manager" /></Grid>
                   <Grid item xs={12}><TextInput name="distribution" control={control} label="Distribution" multiline minRows={2} /></Grid>
                 </Grid>

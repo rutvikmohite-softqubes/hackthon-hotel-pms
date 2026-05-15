@@ -207,4 +207,7 @@ export const unifiedOnboardingDefaults = {
   reservationFileLabelName: "",
   occupancyFileLabelName: "",
   cancellationFileLabelName: "",
+  pmsUsername: "",
+  pmsPassword: "",
+  pmsTwilioNumber: "",
 };
