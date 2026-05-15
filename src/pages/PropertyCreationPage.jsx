@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { yupResolver } from "@hookform/resolvers/yup";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
@@ -31,7 +30,7 @@ import {
 import { TIMEZONES } from "../data/timezones";
 import { portfolioService } from "../services/portfolioService";
 import { propertyService } from "../services/propertyService";
-import { propertyDefaultValues, propertySchema } from "../validations/propertySchema";
+import { propertyDefaultValues } from "../validations/propertySchema";
 import { fileToBase64 } from "../utils/file";
 
 const PropertyCreationPage = () => {
@@ -49,7 +48,6 @@ const PropertyCreationPage = () => {
     formState: { isSubmitting },
   } = useForm({
     defaultValues: propertyDefaultValues,
-    resolver: yupResolver(propertySchema),
   });
 
   const managerOptions = useMemo(

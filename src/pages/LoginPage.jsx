@@ -44,11 +44,7 @@ const LoginPage = ({ mode, onToggleMode }) => {
 
 
       if (String(response?.data?.status_code) === "1") {
-        navigate("/onboarding", {
-          state: {
-            loginSuccessMessage: response?.data?.message || "Login successful."
-          }
-        });
+        navigate("/onboarding");
         return;
       }
 

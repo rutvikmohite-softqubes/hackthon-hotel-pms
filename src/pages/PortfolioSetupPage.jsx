@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { yupResolver } from "@hookform/resolvers/yup";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Divider from "@mui/material/Divider";
@@ -18,7 +17,7 @@ import TextInput from "../components/forms/TextInput";
 import { CLASSIFICATION_OPTIONS, MODULE_OPTIONS } from "../data/constants";
 import { portfolioService } from "../services/portfolioService";
 import { propertyService } from "../services/propertyService";
-import { portfolioDefaultValues, portfolioSchema } from "../validations/portfolioSchema";
+import { portfolioDefaultValues } from "../validations/portfolioSchema";
 
 const PortfolioSetupPage = () => {
   const [loading, setLoading] = useState(false);
@@ -33,7 +32,6 @@ const PortfolioSetupPage = () => {
     formState: { isSubmitting },
   } = useForm({
     defaultValues: portfolioDefaultValues,
-    resolver: yupResolver(portfolioSchema),
   });
 
   const propertyOptions = useMemo(

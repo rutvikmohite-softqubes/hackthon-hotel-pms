@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { yupResolver } from "@hookform/resolvers/yup";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
 import SettingsSuggestIcon from "@mui/icons-material/SettingsSuggest";
 import StepConnector, { stepConnectorClasses } from "@mui/material/StepConnector";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
 import Divider from "@mui/material/Divider";
 import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
@@ -15,6 +15,12 @@ import Stack from "@mui/material/Stack";
 import Step from "@mui/material/Step";
 import StepLabel from "@mui/material/StepLabel";
 import Stepper from "@mui/material/Stepper";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { styled } from "@mui/material/styles";
@@ -41,7 +47,7 @@ import {
 import { TIMEZONES } from "../data/timezones";
 import { portfolioService } from "../services/portfolioService";
 import { propertyService } from "../services/propertyService";
-import { unifiedOnboardingDefaults, unifiedOnboardingSchema } from "../validations/unifiedOnboardingSchema";
+import { unifiedOnboardingDefaults } from "../validations/unifiedOnboardingSchema";
 import { fileToBase64 } from "../utils/file";
 
 import { useLocation } from "react-router-dom";
@@ -55,8 +61,97 @@ const REPORTS_ON_EMAIL_OPTIONS = [
 const steps = [
   "Property Information",
   "Portfolio Setup",
+  "Events",
   "PMS Details",
   "Review & Submit",
+];
+
+const eventTableColumns = [
+  { id: "name", label: "Name" },
+  { id: "type", label: "Type" },
+  { id: "impact", label: "Impact" },
+  { id: "startDate", label: "Start Date" },
+  { id: "endDate", label: "End Date" },
+];
+
+const eventTableRows = [
+  { id: "evt-001", name: "New Year's Day", type: "Holiday", impact: "High", startDate: "01/01/2026", endDate: "01/01/2026" },
+  { id: "evt-002", name: "Independence Day", type: "Holiday", impact: "High", startDate: "07/04/2026", endDate: "07/04/2026" },
+  { id: "evt-003", name: "Veterans Day", type: "Holiday", impact: "Mid", startDate: "11/11/2026", endDate: "11/11/2026" },
+  { id: "evt-004", name: "Thanksgiving", type: "Holiday", impact: "High", startDate: "11/26/2026", endDate: "11/26/2026" },
+  {
+    id: "evt-005",
+    name: "Washington's Birthday - Long Weekend",
+    type: "Holiday",
+    impact: "Mid",
+    startDate: "02/14/2026",
+    endDate: "02/16/2026",
+  },
+  {
+    id: "evt-006",
+    name: "Memorial Day - Long Weekend",
+    type: "Holiday",
+    impact: "High",
+    startDate: "05/23/2026",
+    endDate: "05/25/2026",
+  },
+  {
+    id: "evt-007",
+    name: "Juneteenth - Long Weekend",
+    type: "Holiday",
+    impact: "Mid",
+    startDate: "06/19/2026",
+    endDate: "06/21/2026",
+  },
+  {
+    id: "evt-008",
+    name: "Labor Day - Long Weekend",
+    type: "Holiday",
+    impact: "Mid",
+    startDate: "09/05/2026",
+    endDate: "09/07/2026",
+  },
+  { id: "evt-009", name: "Oak Brook Home Show", type: "Expos", impact: "-", startDate: "02/14/2026", endDate: "02/15/2026" },
+  {
+    id: "evt-010",
+    name: "Construction Expo & Safety Conference",
+    type: "Expos",
+    impact: "-",
+    startDate: "03/02/2026",
+    endDate: "03/04/2026",
+  },
+  {
+    id: "evt-011",
+    name: "Body Mind Spirit Celebration",
+    type: "Expos",
+    impact: "-",
+    startDate: "03/07/2026",
+    endDate: "03/09/2026",
+  },
+  {
+    id: "evt-012",
+    name: "Riot Fest (Chicago) at Douglass Park",
+    type: "Festivals",
+    impact: "-",
+    startDate: "09/19/2026",
+    endDate: "09/20/2026",
+  },
+  {
+    id: "evt-013",
+    name: "Meet the SeatGeek Sidekicks - Effie",
+    type: "Sports",
+    impact: "-",
+    startDate: "01/02/2026",
+    endDate: "01/02/2026",
+  },
+  {
+    id: "evt-014",
+    name: "TESTING ONLY: Meet the SeatGeek Sidekicks - K6 Load Test",
+    type: "Sports",
+    impact: "-",
+    startDate: "01/02/2026",
+    endDate: "01/02/2026",
+  },
 ];
 
 const stepFieldMap = [
@@ -101,6 +196,8 @@ const stepFieldMap = [
     "addPortfolioSetupClassification",
     "addPortfolioSetupManagerId",
     "addPortfolioSetupDetail",
+  ],
+  [
   ],
   [
     "pmsDetailsSelection",
@@ -201,6 +298,7 @@ const UnifiedOnboardingPage = () => {
   const [emailListModalOpen, setEmailListModalOpen] = useState(false);
   const [emailInput, setEmailInput] = useState("");
   const [emailList, setEmailList] = useState([]);
+  const [selectedEventIds, setSelectedEventIds] = useState([]);
   const location = useLocation();
 
   const {
@@ -213,14 +311,12 @@ const UnifiedOnboardingPage = () => {
     formState: { isSubmitting },
   } = useForm({
     defaultValues: unifiedOnboardingDefaults,
-    resolver: yupResolver(unifiedOnboardingSchema),
     mode: "onChange",
     reValidateMode: "onChange",
     shouldUnregister: false,
   });
 
   const watchedPropertyName = watch("propertyName");
-  const watchedGeoLocation = watch("geoLocation");
   const watchedPmsDetailsSelection = watch("pmsDetailsSelection");
   const watchedIsReportsOnEmail = watch("isReportsOnEmail");
 
@@ -261,14 +357,9 @@ const UnifiedOnboardingPage = () => {
       setValue("geoLocation", "", { shouldValidate: false });
       return;
     }
-    if (location.state && location.state.loginSuccessMessage) {
-      setSnackbar({ open: true, message: location.state.loginSuccessMessage, severity: "success" });
-      // Optionally clear the state so it doesn't show again on refresh
-      window.history.replaceState({}, document.title);
-    }
     let cancelled = false;
 
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       (async () => {
         try {
           const { latitude, longitude } = await geocodePropertyName(watchedPropertyName.trim());
@@ -288,7 +379,7 @@ const UnifiedOnboardingPage = () => {
       cancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [setValue, watchedGeoLocation, watchedPropertyName]);
+  }, [setValue, watchedPropertyName]);
 
   useEffect(() => {
     if (isChoice && watchedIsReportsOnEmail !== "No") {
@@ -329,6 +420,24 @@ const UnifiedOnboardingPage = () => {
     () => managers.map((manager) => ({ label: manager.name, value: manager.id })),
     [managers]
   );
+
+  const selectedEvents = useMemo(
+    () => eventTableRows.filter((row) => selectedEventIds.includes(row.id)),
+    [selectedEventIds]
+  );
+
+  const allEventsSelected = selectedEventIds.length > 0 && selectedEventIds.length === eventTableRows.length;
+  const partiallySelected = selectedEventIds.length > 0 && selectedEventIds.length < eventTableRows.length;
+
+  const handleToggleAllEvents = (isChecked) => {
+    setSelectedEventIds(isChecked ? eventTableRows.map((event) => event.id) : []);
+  };
+
+  const handleToggleEvent = (eventId) => {
+    setSelectedEventIds((prev) =>
+      prev.includes(eventId) ? prev.filter((id) => id !== eventId) : [...prev, eventId]
+    );
+  };
 
   const handleNext = async () => {
     const fields = stepFieldMap[activeStep] || [];
@@ -425,23 +534,21 @@ const UnifiedOnboardingPage = () => {
         reservationFileLabelName: values.reservationFileLabelName,
         occupancyFileLabelName: values.occupancyFileLabelName,
         cancellationFileLabelName: values.cancellationFileLabelName,
+        selectedEventIds,
+        selectedEvents,
         createdAt: new Date().toISOString(),
       };
       const existingPmsDetails = JSON.parse(localStorage.getItem("hotelPms.pmsDetailsConfigs") || "[]");
       localStorage.setItem("hotelPms.pmsDetailsConfigs", JSON.stringify([pmsDetailsPayload, ...existingPmsDetails]));
 
       reset(unifiedOnboardingDefaults);
+      setSelectedEventIds([]);
       setActiveStep(0);
       setSnackbar({
         open: true,
         message: "Property, portfolio, and PMS details submitted successfully.",
         severity: "success",
       });
-      if (location.state && location.state.loginSuccessMessage) {
-        setSnackbar({ open: true, message: location.state.loginSuccessMessage, severity: "success" });
-        // Optionally clear the state so it doesn't show again on refresh
-        window.history.replaceState({}, document.title);
-      }
     } catch (error) {
       setSnackbar({ open: true, message: error.message || "Failed to submit onboarding.", severity: "error" });
     } finally {
@@ -558,37 +665,6 @@ const UnifiedOnboardingPage = () => {
 
   const renderPortfolioStep = () => (
     <Stack spacing={2.5}>
-      <FormSection title="Portfolio Setup">
-        <Box
-          sx={{
-            display: "grid",
-            gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" },
-            gap: 2,
-          }}
-        >
-          <TextInput name="portfolioCode" control={control} label="Portfolio Code" />
-          <TextInput name="portfolioName" control={control} label="Portfolio Name" />
-          <SelectInput
-            name="portfolioClassification"
-            control={control}
-            label="Classification"
-            options={CLASSIFICATION_OPTIONS}
-          />
-          <TextInput name="portfolioManager" control={control} label="Primary Manager" />
-          <SelectInput name="portfolioModule" control={control} label="Module" options={MODULE_OPTIONS} />
-          <SelectInput
-            name="portfolioPropertyName"
-            control={control}
-            label="Property"
-            options={watchedPropertyName ? [watchedPropertyName] : []}
-          />
-          <TextInput name="portfolioSecondaryManager" control={control} label="Secondary Manager" />
-          <Box sx={{ gridColumn: { xs: "1", md: "1 / -1" } }}>
-            <TextInput name="portfolioDistribution" control={control} label="Distribution" multiline minRows={2} />
-          </Box>
-        </Box>
-      </FormSection>
-
       <FormSection title="Add Portfolio Setup">
         <Box
           sx={{
@@ -696,6 +772,60 @@ const UnifiedOnboardingPage = () => {
     </FormSection>
   );
 
+  const renderEventsStep = () => (
+    <FormSection title="Events">
+      <Stack spacing={1.5}>
+        <Typography variant="body2" color="text.secondary">
+          Selected events: {selectedEventIds.length}
+        </Typography>
+
+        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell padding="checkbox">
+                  <Checkbox
+                    checked={allEventsSelected}
+                    indeterminate={partiallySelected}
+                    onChange={(event) => handleToggleAllEvents(event.target.checked)}
+                    inputProps={{ "aria-label": "Select all events" }}
+                  />
+                </TableCell>
+                {eventTableColumns.map((column) => (
+                  <TableCell key={column.id} sx={{ fontWeight: 700 }}>
+                    {column.label}
+                  </TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {eventTableRows.map((eventRow) => {
+                const isChecked = selectedEventIds.includes(eventRow.id);
+
+                return (
+                  <TableRow key={eventRow.id} hover>
+                    <TableCell padding="checkbox">
+                      <Checkbox
+                        checked={isChecked}
+                        onChange={() => handleToggleEvent(eventRow.id)}
+                        inputProps={{ "aria-label": `Select ${eventRow.name}` }}
+                      />
+                    </TableCell>
+                    <TableCell>{eventRow.name}</TableCell>
+                    <TableCell>{eventRow.type}</TableCell>
+                    <TableCell>{eventRow.impact}</TableCell>
+                    <TableCell>{eventRow.startDate}</TableCell>
+                    <TableCell>{eventRow.endDate}</TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Stack>
+    </FormSection>
+  );
+
   const renderReviewStep = () => {
     const values = watch();
 
@@ -715,6 +845,7 @@ const UnifiedOnboardingPage = () => {
           <Grid item xs={12} md={8}><Typography variant="body2" color="text.secondary">Add setup — Detail</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{values.addPortfolioSetupDetail || "-"}</Typography></Grid>
           <Grid item xs={12} md={4}><Typography variant="body2" color="text.secondary">PMS Details Selection</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{values.pmsDetailsSelection || "-"}</Typography></Grid>
           <Grid item xs={12} md={4}><Typography variant="body2" color="text.secondary">Reports On Email</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{values.isReportsOnEmail || "-"}</Typography></Grid>
+          <Grid item xs={12} md={4}><Typography variant="body2" color="text.secondary">Selected Events</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{selectedEventIds.length}</Typography></Grid>
         </Grid>
       </FormSection>
     );
@@ -753,8 +884,9 @@ const UnifiedOnboardingPage = () => {
             <Stack spacing={2.5}>
               <Box sx={{ display: activeStep === 0 ? "block" : "none" }}>{renderPropertyStep()}</Box>
               <Box sx={{ display: activeStep === 1 ? "block" : "none" }}>{renderPortfolioStep()}</Box>
-              <Box sx={{ display: activeStep === 2 ? "block" : "none" }}>{renderPmsDetailsStep()}</Box>
-              <Box sx={{ display: activeStep === 3 ? "block" : "none" }}>{renderReviewStep()}</Box>
+              <Box sx={{ display: activeStep === 2 ? "block" : "none" }}>{renderEventsStep()}</Box>
+              <Box sx={{ display: activeStep === 3 ? "block" : "none" }}>{renderPmsDetailsStep()}</Box>
+              <Box sx={{ display: activeStep === 4 ? "block" : "none" }}>{renderReviewStep()}</Box>
 
               <Divider />
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} justifyContent="space-between">
@@ -768,6 +900,7 @@ const UnifiedOnboardingPage = () => {
                     color="inherit"
                     onClick={() => {
                       reset(unifiedOnboardingDefaults);
+                      setSelectedEventIds([]);
                       setActiveStep(0);
                     }}
                   >
