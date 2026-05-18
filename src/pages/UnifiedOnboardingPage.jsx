@@ -2,6 +2,32 @@ import { useEffect, useMemo, useState } from "react";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
 import SettingsSuggestIcon from "@mui/icons-material/SettingsSuggest";
+import BusinessIcon from "@mui/icons-material/Business";
+import ContactMailIcon from "@mui/icons-material/ContactMail";
+import AccountTreeIcon from "@mui/icons-material/AccountTree";
+import EventIcon from "@mui/icons-material/Event";
+import StorageIcon from "@mui/icons-material/Storage";
+import LocationOnIcon from "@mui/icons-material/LocationOn";
+import VerifiedIcon from "@mui/icons-material/Verified";
+import DiamondIcon from "@mui/icons-material/Diamond";
+import PublicIcon from "@mui/icons-material/Public";
+import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
+import LinkIcon from "@mui/icons-material/Link";
+import DevicesIcon from "@mui/icons-material/Devices";
+import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
+import EmailOutlinedIcon from "@mui/icons-material/EmailOutlined";
+import PhoneOutlinedIcon from "@mui/icons-material/PhoneOutlined";
+import PlaceOutlinedIcon from "@mui/icons-material/PlaceOutlined";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
+import GridViewIcon from "@mui/icons-material/GridView";
+import HomeOutlinedIcon from "@mui/icons-material/HomeOutlined";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import AddIcon from "@mui/icons-material/Add";
+import InventoryIcon from "@mui/icons-material/Inventory2Outlined";
+import Avatar from "@mui/material/Avatar";
+import Chip from "@mui/material/Chip";
 import StepConnector, { stepConnectorClasses } from "@mui/material/StepConnector";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -58,6 +84,20 @@ import { fileToBase64 } from "../utils/file";
 import { useLocation } from "react-router-dom";
 
 const PMS_DETAILS_OPTIONS = ["Choice", "Redroof", "OperaCloud"];
+const RATE_CODE_TYPE_OPTIONS = ["HIGH", "LOW"];
+const MARKET_SEGMENT_OPTIONS = [
+  "OTA DISCOUNT",
+  "BRAND DISCOUNT",
+  "OTAMERNET_U",
+  "CORPORATE NEGOTIATED",
+  "OTA RETAIL",
+  "LOCAL NEGOTIATED",
+  "QUALIFIED DISCOUNT",
+  "REDEMPTION",
+  "GOVERNMENT",
+  "UNMAPPED",
+];
+const CHANNEL_PARTNER_OPTIONS = ["BOOKING.COM", "UNMAPPED"];
 const REPORTS_ON_EMAIL_OPTIONS = [
   { label: "Yes", value: "Yes" },
   { label: "No", value: "No" },
@@ -67,6 +107,7 @@ const steps = [
   "Property Information",
   "Portfolio Setup",
   "Events",
+  "RateCodes Mapping",
   "PMS Details",
   "Review & Submit",
 ];
@@ -125,6 +166,9 @@ const stepFieldMap = [
     "addPortfolioSetupDetail",
   ],
   [
+  ],
+  [
+    "totalInventory",
   ],
   [
     "pmsDetailsSelection",
@@ -235,9 +279,23 @@ const UnifiedOnboardingPage = () => {
   const [portfolioRows, setPortfolioRows] = useState([
     { id: 1, module: "", property: "", managerId: "", distribution: [] },
   ]);
+  const [rateCodeRows, setRateCodeRows] = useState([
+    {
+      id: 1,
+      rateCode: "",
+      description: "",
+      barBased: false,
+      rateCodeType: "HIGH",
+      marketSegment: "UNMAPPED",
+      channelPartner: "UNMAPPED",
+      commission: "0.00",
+    },
+  ]);
   const [distributionModalOpen, setDistributionModalOpen] = useState(false);
   const [activeDistributionRowId, setActiveDistributionRowId] = useState(null);
   const [distributionInput, setDistributionInput] = useState("");
+  const [reviewEventsPage, setReviewEventsPage] = useState(0);
+  const [reviewEventsRowsPerPage, setReviewEventsRowsPerPage] = useState(5);
   const location = useLocation();
 
   const {
@@ -443,6 +501,32 @@ const UnifiedOnboardingPage = () => {
     );
   };
 
+  const updateRateCodeRow = (id, field, value) => {
+    setRateCodeRows((prev) =>
+      prev.map((row) => (row.id === id ? { ...row, [field]: value } : row))
+    );
+  };
+
+  const addRateCodeRow = () => {
+    setRateCodeRows((prev) => [
+      ...prev,
+      {
+        id: prev.length ? Math.max(...prev.map((r) => r.id)) + 1 : 1,
+        rateCode: "",
+        description: "",
+        barBased: false,
+        rateCodeType: "HIGH",
+        marketSegment: "UNMAPPED",
+        channelPartner: "UNMAPPED",
+        commission: "0.00",
+      },
+    ]);
+  };
+
+  const removeRateCodeRow = (id) => {
+    setRateCodeRows((prev) => (prev.length > 1 ? prev.filter((row) => row.id !== id) : prev));
+  };
+
   const addPortfolioRow = () => {
     setPortfolioRows((prev) => [
       ...prev,
@@ -566,6 +650,13 @@ const UnifiedOnboardingPage = () => {
   const handleBack = () => setActiveStep((prev) => Math.max(prev - 1, 0));
 
   const onSubmit = async (values) => {
+    // Safety net: only proceed when the user is on the final review step.
+    // The form's onSubmit is already disabled, but this guard prevents any
+    // accidental programmatic submission from finalizing the onboarding.
+    if (activeStep !== steps.length - 1) {
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -649,6 +740,8 @@ const UnifiedOnboardingPage = () => {
         cancellationFileLabelName: values.cancellationFileLabelName,
         selectedEventIds,
         selectedEvents,
+        rateCodes: rateCodeRows,
+        totalInventory: values.totalInventory,
         createdAt: new Date().toISOString(),
       };
       const existingPmsDetails = JSON.parse(localStorage.getItem("hotelPms.pmsDetailsConfigs") || "[]");
@@ -658,6 +751,18 @@ const UnifiedOnboardingPage = () => {
       setSelectedEventIds([]);
       setEventRows([]);
       setLastEventFetchKey("");
+      setRateCodeRows([
+        {
+          id: 1,
+          rateCode: "",
+          description: "",
+          barBased: false,
+          rateCodeType: "HIGH",
+          marketSegment: "UNMAPPED",
+          channelPartner: "UNMAPPED",
+          commission: "0.00",
+        },
+      ]);
       setActiveStep(0);
       setSnackbar({
         open: true,
@@ -1146,28 +1251,721 @@ const UnifiedOnboardingPage = () => {
     </FormSection>
   );
 
-  const renderReviewStep = () => {
-    const values = watch();
+  const renderRateCodesStep = () => (
+    <Stack spacing={3}>
+      <FormSection
+        title="RateCodes Mapping"
+        description="Map each rate code to a market segment and channel partner."
+        icon={<StorageIcon color="primary" />}
+      >
+        <Stack spacing={2}>
+          <Stack direction="row" justifyContent="flex-end">
+            <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={addRateCodeRow}>
+              Add Rate Code
+            </Button>
+          </Stack>
 
-    return (
-      <FormSection title="Review Before Submit">
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ "& th": { fontWeight: 700, backgroundColor: "action.hover" } }}>
+                  <TableCell>RATE CODE</TableCell>
+                  <TableCell>DESCRIPTION</TableCell>
+                  <TableCell align="center">BAR BASED</TableCell>
+                  <TableCell>RATE CODE TYPE</TableCell>
+                  <TableCell>MARKET SEGMENT</TableCell>
+                  <TableCell>CHANNEL PARTNER</TableCell>
+                  <TableCell align="right">COMMISSION</TableCell>
+                  <TableCell align="center">ACTION</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {rateCodeRows.map((row) => (
+                  <TableRow key={row.id} hover>
+                    <TableCell sx={{ minWidth: 130 }}>
+                      <TextField
+                        value={row.rateCode}
+                        onChange={(e) => updateRateCodeRow(row.id, "rateCode", e.target.value)}
+                        size="small"
+                        fullWidth
+                        variant="standard"
+                        placeholder="Rate Code"
+                      />
+                    </TableCell>
+                    <TableCell sx={{ minWidth: 180 }}>
+                      <TextField
+                        value={row.description}
+                        onChange={(e) => updateRateCodeRow(row.id, "description", e.target.value)}
+                        size="small"
+                        fullWidth
+                        variant="standard"
+                        placeholder="Description"
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <Checkbox
+                        checked={!!row.barBased}
+                        onChange={(e) => updateRateCodeRow(row.id, "barBased", e.target.checked)}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell sx={{ minWidth: 130 }}>
+                      <TextField
+                        select
+                        value={row.rateCodeType}
+                        onChange={(e) => updateRateCodeRow(row.id, "rateCodeType", e.target.value)}
+                        size="small"
+                        fullWidth
+                        variant="standard"
+                      >
+                        {RATE_CODE_TYPE_OPTIONS.map((opt) => (
+                          <MenuItem key={opt} value={opt}>
+                            {opt}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </TableCell>
+                    <TableCell sx={{ minWidth: 180 }}>
+                      <TextField
+                        select
+                        value={row.marketSegment}
+                        onChange={(e) => updateRateCodeRow(row.id, "marketSegment", e.target.value)}
+                        size="small"
+                        fullWidth
+                        variant="standard"
+                      >
+                        {MARKET_SEGMENT_OPTIONS.map((opt) => (
+                          <MenuItem key={opt} value={opt}>
+                            {opt}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </TableCell>
+                    <TableCell sx={{ minWidth: 160 }}>
+                      <TextField
+                        select
+                        value={row.channelPartner}
+                        onChange={(e) => updateRateCodeRow(row.id, "channelPartner", e.target.value)}
+                        size="small"
+                        fullWidth
+                        variant="standard"
+                      >
+                        {CHANNEL_PARTNER_OPTIONS.map((opt) => (
+                          <MenuItem key={opt} value={opt}>
+                            {opt}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+                    </TableCell>
+                    <TableCell align="right" sx={{ minWidth: 110 }}>
+                      <TextField
+                        type="number"
+                        value={row.commission}
+                        onChange={(e) => updateRateCodeRow(row.id, "commission", e.target.value)}
+                        size="small"
+                        fullWidth
+                        variant="standard"
+                        inputProps={{ step: "0.01", min: 0, style: { textAlign: "right" } }}
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <IconButton
+                        size="small"
+                        onClick={() => removeRateCodeRow(row.id)}
+                        disabled={rateCodeRows.length <= 1}
+                        aria-label="Remove rate code"
+                      >
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Stack>
+      </FormSection>
+
+      <FormSection
+        title="Total Inventory"
+        description="Total number of rooms / inventory units available."
+        icon={<InventoryIcon color="primary" />}
+      >
         <Grid container spacing={2}>
-          <Grid item xs={12} md={4}><Typography variant="body2" color="text.secondary">Property</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{values.propertyName || "-"}</Typography></Grid>
-          <Grid item xs={12} md={4}><Typography variant="body2" color="text.secondary">Property Code</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{values.propertyCode || "-"}</Typography></Grid>
-          <Grid item xs={12} md={4}><Typography variant="body2" color="text.secondary">Manager</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{managerOptions.find((item) => item.value === values.managerId)?.label || "-"}</Typography></Grid>
-          <Grid item xs={12} md={4}><Typography variant="body2" color="text.secondary">Portfolio</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{values.portfolioName || "-"}</Typography></Grid>
-          <Grid item xs={12} md={4}><Typography variant="body2" color="text.secondary">Portfolio Module</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{values.portfolioModule || "-"}</Typography></Grid>
-          <Grid item xs={12} md={4}><Typography variant="body2" color="text.secondary">Distribution</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{values.portfolioDistribution || "-"}</Typography></Grid>
-          <Grid item xs={12} md={4}><Typography variant="body2" color="text.secondary">Add setup — Code</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{values.addPortfolioSetupCode || "-"}</Typography></Grid>
-          <Grid item xs={12} md={4}><Typography variant="body2" color="text.secondary">Add setup — Name</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{values.addPortfolioSetupName || "-"}</Typography></Grid>
-          <Grid item xs={12} md={4}><Typography variant="body2" color="text.secondary">Add setup — Manager</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{managerOptions.find((item) => item.value === values.addPortfolioSetupManagerId)?.label || "-"}</Typography></Grid>
-          <Grid item xs={12} md={4}><Typography variant="body2" color="text.secondary">Add setup — Classification</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{values.addPortfolioSetupClassification || "-"}</Typography></Grid>
-          <Grid item xs={12} md={8}><Typography variant="body2" color="text.secondary">Add setup — Detail</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{values.addPortfolioSetupDetail || "-"}</Typography></Grid>
-          <Grid item xs={12} md={4}><Typography variant="body2" color="text.secondary">PMS Details Selection</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{values.pmsDetailsSelection || "-"}</Typography></Grid>
-          <Grid item xs={12} md={4}><Typography variant="body2" color="text.secondary">Reports On Email</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{values.isReportsOnEmail || "-"}</Typography></Grid>
-          <Grid item xs={12} md={4}><Typography variant="body2" color="text.secondary">Selected Events</Typography><Typography variant="body1" sx={{ fontWeight: 600 }}>{selectedEventIds.length}</Typography></Grid>
+          <Grid item xs={12} sm={6} md={4}>
+            <TextInput
+              name="totalInventory"
+              control={control}
+              label="Total Inventory"
+              type="number"
+              inputProps={{ min: 0, step: 1 }}
+              placeholder="e.g. 120"
+            />
+          </Grid>
         </Grid>
       </FormSection>
+    </Stack>
+  );
+
+  const renderReviewStep = () => {
+    const values = watch();
+    const managerName = managerOptions.find((m) => m.value === values.managerId)?.label || "—";
+    const selectedEvents = eventRows.filter((row) => selectedEventIds.includes(row.id));
+    const pictureSrc =
+      values.picture && typeof values.picture === "string"
+        ? values.picture
+        : values.picture instanceof File
+        ? URL.createObjectURL(values.picture)
+        : "";
+
+    // Palette tokens from the preview HTML.
+    const GREEN = "#22c55e";
+    const GREEN_DARK = "#15803d";
+    const GREEN_SOFT = "#dcfce7";
+    const PURPLE = "#7c3aed";
+    const PURPLE_SOFT = "#ede9fe";
+    const SLATE_500 = "#64748b";
+    const BORDER = "#e5e7eb";
+    const BG_SOFT = "#fafafa";
+    const EM_DASH = "—";
+
+    // White rounded card.
+    const Card = ({ children, sx }) => (
+      <Paper
+        elevation={0}
+        sx={{
+          backgroundColor: "#fff",
+          borderRadius: "24px",
+          border: `1px solid ${BORDER}`,
+          p: { xs: 2.5, sm: 4 },
+          boxShadow: "0 4px 20px rgba(15,23,42,0.04)",
+          ...sx,
+        }}
+      >
+        {children}
+      </Paper>
+    );
+
+    // Soft gray detail box: label on top, bold value below.
+    const DetailBox = ({ label, value, children }) => (
+      <Box sx={{ p: 2.25, borderRadius: "16px", backgroundColor: BG_SOFT }}>
+        <Typography sx={{ fontSize: 13, color: SLATE_500, mb: 0.75 }}>{label}</Typography>
+        {children !== undefined ? (
+          children
+        ) : (
+          <Typography sx={{ fontSize: 17, fontWeight: 600, color: "#0f172a", wordBreak: "break-word" }}>
+            {value === 0 ? 0 : value || EM_DASH}
+          </Typography>
+        )}
+      </Box>
+    );
+
+    // Pill badge.
+    const Badge = ({ label, variant = "purple" }) => {
+      const styles =
+        variant === "green"
+          ? { bg: GREEN_SOFT, color: GREEN_DARK }
+          : { bg: PURPLE_SOFT, color: PURPLE };
+      return (
+        <Box
+          sx={{
+            display: "inline-block",
+            px: 1.75,
+            py: 1,
+            borderRadius: "999px",
+            fontSize: 13,
+            fontWeight: 700,
+            backgroundColor: styles.bg,
+            color: styles.color,
+            lineHeight: 1,
+          }}
+        >
+          {label}
+        </Box>
+      );
+    };
+
+    // Section title (plain, no icon).
+    const SectionTitle = ({ children }) => (
+      <Typography sx={{ fontSize: 24, fontWeight: 700, mb: 3, color: "#0f172a" }}>
+        {children}
+      </Typography>
+    );
+
+    const handleEditProperty = () => setActiveStep(0);
+
+    const detailFields = [
+      { label: "Brand", value: values.brand },
+      { label: "Franchise", value: values.franchise },
+      { label: "Chain", value: values.chain },
+      { label: "PMS", value: values.pms },
+      { label: "PMS Type", value: values.pmsType },
+      { label: "Property Code", value: values.propertyCode },
+      { label: "System Type", value: values.systemType },
+      { label: "Manager", value: managerName },
+      { label: "Geo Location", value: values.geoLocation },
+      { label: "Event Radius", value: values.eventRadius },
+      { label: "Web URL", value: values.webUrl },
+      { label: "Brand URL", value: values.brandUrl },
+    ];
+
+    return (
+      <Box sx={{ backgroundColor: "#f5f7fb", borderRadius: "24px", p: { xs: 2, sm: 3 }, mx: { xs: -2, sm: -2.5 } }}>
+        <Stack spacing={3}>
+          {/* Topbar */}
+          <Stack
+            direction={{ xs: "column", md: "row" }}
+            justifyContent="space-between"
+            alignItems={{ xs: "flex-start", md: "center" }}
+            spacing={2}
+          >
+            <Box>
+              <Typography sx={{ fontSize: 14, color: SLATE_500, mb: 1.25 }}>
+                Properties / Property Review
+              </Typography>
+              <Typography sx={{ fontSize: { xs: 32, sm: 42 }, fontWeight: 800, lineHeight: 1.1, mb: 1 }}>
+                Property Review
+              </Typography>
+              <Typography sx={{ fontSize: 16, color: SLATE_500 }}>
+                Review and confirm property details
+              </Typography>
+            </Box>
+            <Stack direction="row" spacing={2}>
+              <Button
+                onClick={handleEditProperty}
+                sx={{
+                  backgroundColor: "#fff",
+                  border: `1px solid ${BORDER}`,
+                  borderRadius: "12px",
+                  px: 3,
+                  py: 1.5,
+                  fontSize: 15,
+                  fontWeight: 600,
+                  color: "#0f172a",
+                  textTransform: "none",
+                  "&:hover": { backgroundColor: "#f8fafc" },
+                }}
+              >
+                Edit Property
+              </Button>
+              <Button
+                onClick={handleSubmit(onSubmit)}
+                disabled={isSubmitting || loading}
+                sx={{
+                  backgroundColor: GREEN,
+                  color: "#fff",
+                  borderRadius: "12px",
+                  px: 3,
+                  py: 1.5,
+                  fontSize: 15,
+                  fontWeight: 600,
+                  textTransform: "none",
+                  boxShadow: "0 6px 16px rgba(34,197,94,0.25)",
+                  "&:hover": { backgroundColor: GREEN_DARK, boxShadow: "0 6px 16px rgba(34,197,94,0.35)" },
+                  "&.Mui-disabled": { backgroundColor: GREEN, opacity: 0.6, color: "#fff" },
+                }}
+              >
+                {loading ? "Submitting..." : "Approve Property"}
+              </Button>
+            </Stack>
+          </Stack>
+
+          {/* Property card */}
+          <Card>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: 3.5,
+                flexWrap: "wrap",
+              }}
+            >
+              <Box sx={{ display: "flex", gap: 3, alignItems: "flex-start", flexWrap: { xs: "wrap", sm: "nowrap" } }}>
+                <Box
+                  sx={{
+                    width: 180,
+                    height: 120,
+                    borderRadius: "18px",
+                    overflow: "hidden",
+                    flexShrink: 0,
+                    backgroundColor: GREEN_SOFT,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {pictureSrc ? (
+                    <Box
+                      component="img"
+                      src={pictureSrc}
+                      alt={values.propertyName || "Property"}
+                      sx={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  ) : (
+                    <BusinessIcon sx={{ fontSize: 64, color: GREEN_DARK }} />
+                  )}
+                </Box>
+                <Box>
+                  <Typography
+                    sx={{
+                      fontSize: { xs: 28, sm: 38 },
+                      fontWeight: 800,
+                      lineHeight: 1.2,
+                      mb: 2.25,
+                      color: "#0f172a",
+                    }}
+                  >
+                    {values.propertyName || "Untitled Property"}
+                  </Typography>
+                  <Stack direction="row" spacing={1.5} sx={{ flexWrap: "wrap", rowGap: 1 }}>
+                    {values.propertyCode && <Badge label={values.propertyCode} variant="purple" />}
+                    <Badge label={values.status || "Active"} variant="green" />
+                  </Stack>
+                </Box>
+              </Box>
+
+              <Stack direction="row" spacing={{ xs: 3, sm: 6 }} sx={{ flexWrap: "wrap", rowGap: 2 }}>
+                {[
+                  { label: "Classification", value: values.classification },
+                  { label: "Timezone", value: values.timezone },
+                  { label: "Currency", value: values.currency },
+                ].map((s) => (
+                  <Box key={s.label} sx={{ minWidth: 160 }}>
+                    <Typography sx={{ fontSize: 22, fontWeight: 700, color: "#0f172a", mt: 1 }}>
+                      {s.value || EM_DASH}
+                    </Typography>
+                    <Typography sx={{ fontSize: 14, color: SLATE_500, mt: 0.5 }}>{s.label}</Typography>
+                  </Box>
+                ))}
+              </Stack>
+            </Box>
+
+            <Box sx={{ height: "1px", backgroundColor: BORDER, my: 3.5 }} />
+
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: 3,
+              }}
+            >
+              {detailFields.map((f) => (
+                <DetailBox key={f.label} label={f.label} value={f.value} />
+              ))}
+            </Box>
+          </Card>
+
+          {/* Two-column row: Contact + Portfolio Setup */}
+          <Box
+            sx={{
+              display: "grid",
+              gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+              gap: 3,
+            }}
+          >
+            <Card>
+              <SectionTitle>Contact Information</SectionTitle>
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                  gap: 2.75,
+                }}
+              >
+                <DetailBox label="Contact Name" value={values.contactName} />
+                <DetailBox label="Email" value={values.email} />
+                <DetailBox label="Mobile No" value={values.mobileNo} />
+                <DetailBox label="Contact No" value={values.contactNo} />
+                <Box sx={{ gridColumn: "1 / -1" }}>
+                  <DetailBox
+                    label="Address"
+                    value={[values.address, values.city, values.state, values.country, values.zipCode]
+                      .filter(Boolean)
+                      .join(", ")}
+                  />
+                </Box>
+              </Box>
+            </Card>
+
+            <Card>
+              <SectionTitle>Portfolio Setup</SectionTitle>
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                  gap: 2.75,
+                }}
+              >
+                <DetailBox label="Code" value={values.addPortfolioSetupCode} />
+                <DetailBox label="Name" value={values.addPortfolioSetupName} />
+                <DetailBox label="Classification">
+                  {values.addPortfolioSetupClassification ? (
+                    <Badge label={values.addPortfolioSetupClassification} variant="purple" />
+                  ) : (
+                    <Typography sx={{ fontSize: 17, fontWeight: 600 }}>{EM_DASH}</Typography>
+                  )}
+                </DetailBox>
+                <DetailBox
+                  label="Manager"
+                  value={
+                    managerOptions.find((m) => m.value === values.addPortfolioSetupManagerId)?.label || EM_DASH
+                  }
+                />
+              </Box>
+            </Card>
+          </Box>
+
+          {/* Portfolio Modules */}
+          <Card>
+            <SectionTitle>Portfolio Modules</SectionTitle>
+            <TableContainer sx={{ borderRadius: "18px", border: `1px solid ${BORDER}`, overflow: "hidden" }}>
+              <Table>
+                <TableHead sx={{ backgroundColor: "#f8fafc" }}>
+                  <TableRow>
+                    {["Module", "Property", "Manager", "Distribution"].map((h) => (
+                      <TableCell
+                        key={h}
+                        sx={{ fontSize: 14, fontWeight: 600, color: SLATE_500, py: 2.25, border: 0 }}
+                      >
+                        {h}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {portfolioRows.length ? (
+                    portfolioRows.map((row) => (
+                      <TableRow key={row.id} sx={{ "&:hover": { backgroundColor: BG_SOFT } }}>
+                        <TableCell sx={{ py: 2.75, fontWeight: 500, borderTop: `1px solid #edf2f7` }}>
+                          {row.module || EM_DASH}
+                        </TableCell>
+                        <TableCell sx={{ py: 2.75, fontWeight: 500, borderTop: `1px solid #edf2f7` }}>
+                          {row.property || EM_DASH}
+                        </TableCell>
+                        <TableCell sx={{ py: 2.75, fontWeight: 500, borderTop: `1px solid #edf2f7` }}>
+                          {managerOptions.find((m) => m.value === row.managerId)?.label || EM_DASH}
+                        </TableCell>
+                        <TableCell sx={{ py: 2.75, fontWeight: 500, borderTop: `1px solid #edf2f7` }}>
+                          {row.distribution.length
+                            ? row.distribution.map((d, i) => (
+                                <Chip key={`${d}-${i}`} size="small" label={d} sx={{ mr: 0.5, mb: 0.5 }} />
+                              ))
+                            : EM_DASH}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={4}
+                        align="center"
+                        sx={{ color: SLATE_500, py: 3, borderTop: `1px solid #edf2f7` }}
+                      >
+                        No modules added.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Card>
+
+          {/* RateCodes Mapping */}
+          <Card>
+            <SectionTitle>RateCodes Mapping</SectionTitle>
+            <TableContainer sx={{ borderRadius: "18px", border: `1px solid ${BORDER}`, overflow: "hidden" }}>
+              <Table size="small">
+                <TableHead sx={{ backgroundColor: "#f8fafc" }}>
+                  <TableRow>
+                    {[
+                      "Rate Code",
+                      "Description",
+                      "BAR Based",
+                      "Type",
+                      "Market Segment",
+                      "Channel Partner",
+                      "Commission",
+                    ].map((h) => (
+                      <TableCell
+                        key={h}
+                        sx={{ fontSize: 13, fontWeight: 600, color: SLATE_500, py: 2, border: 0 }}
+                      >
+                        {h}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {rateCodeRows.length ? (
+                    rateCodeRows.map((row) => (
+                      <TableRow key={row.id} sx={{ "&:hover": { backgroundColor: BG_SOFT } }}>
+                        <TableCell sx={{ py: 2, fontWeight: 500, borderTop: `1px solid #edf2f7` }}>
+                          {row.rateCode || EM_DASH}
+                        </TableCell>
+                        <TableCell sx={{ py: 2, fontWeight: 500, borderTop: `1px solid #edf2f7` }}>
+                          {row.description || EM_DASH}
+                        </TableCell>
+                        <TableCell sx={{ py: 2, fontWeight: 500, borderTop: `1px solid #edf2f7` }}>
+                          {row.barBased ? "Yes" : "No"}
+                        </TableCell>
+                        <TableCell sx={{ py: 2, fontWeight: 500, borderTop: `1px solid #edf2f7` }}>
+                          {row.rateCodeType || EM_DASH}
+                        </TableCell>
+                        <TableCell sx={{ py: 2, fontWeight: 500, borderTop: `1px solid #edf2f7` }}>
+                          {row.marketSegment || EM_DASH}
+                        </TableCell>
+                        <TableCell sx={{ py: 2, fontWeight: 500, borderTop: `1px solid #edf2f7` }}>
+                          {row.channelPartner || EM_DASH}
+                        </TableCell>
+                        <TableCell sx={{ py: 2, fontWeight: 500, borderTop: `1px solid #edf2f7` }}>
+                          {row.commission || "0.00"}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        align="center"
+                        sx={{ color: SLATE_500, py: 3, borderTop: `1px solid #edf2f7` }}
+                      >
+                        No rate codes mapped.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Card>
+
+          {/* Total Inventory */}
+          <Card>
+            <SectionTitle>Total Inventory</SectionTitle>
+            <Box
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: 2.75,
+              }}
+            >
+              <DetailBox label="Total Inventory" value={values.totalInventory} />
+            </Box>
+          </Card>
+
+          {/* PMS Details */}
+          {(isChoice || isOperaCloud || values.pms) && (
+            <Card>
+              <SectionTitle>PMS Details</SectionTitle>
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                  gap: 2.75,
+                }}
+              >
+                <DetailBox label="PMS Selection" value={values.pms || values.pmsDetailsSelection} />
+                {isChoice && (
+                  <>
+                    <DetailBox label="Username" value={values.pmsUsername} />
+                    <DetailBox label="Password" value={values.pmsPassword ? "••••••••" : EM_DASH} />
+                    <DetailBox label="Twilio Number" value={values.pmsTwilioNumber} />
+                    <DetailBox label="Reservation Start" value={values.reservationStartDate} />
+                    <DetailBox label="Reservation End" value={values.reservationEndDate} />
+                    <DetailBox label="Occupancy Start" value={values.occupancyStartDate} />
+                    <DetailBox label="Occupancy End" value={values.occupancyEndDate} />
+                  </>
+                )}
+                {isOperaCloud && (
+                  <>
+                    <DetailBox label="Reports Receiver Email" value={values.reportsReceiverEmail} />
+                    <DetailBox label="Your Email" value={values.yourEmail} />
+                    <DetailBox label="Reservation File" value={values.reservationFileLabelName} />
+                    <DetailBox label="Occupancy File" value={values.occupancyFileLabelName} />
+                    <DetailBox label="Cancellation File" value={values.cancellationFileLabelName} />
+                  </>
+                )}
+                {!isChoice && !isOperaCloud && (
+                  <>
+                    <DetailBox label="Reservation Start" value={values.reservationStartDate} />
+                    <DetailBox label="Reservation End" value={values.reservationEndDate} />
+                    <DetailBox label="Occupancy Start" value={values.occupancyStartDate} />
+                    <DetailBox label="Occupancy End" value={values.occupancyEndDate} />
+                  </>
+                )}
+              </Box>
+            </Card>
+          )}
+
+          {/* Selected Events */}
+          {selectedEvents.length > 0 && (
+            <Card>
+              <SectionTitle>Selected Events ({selectedEvents.length})</SectionTitle>
+              <TableContainer sx={{ borderRadius: "18px", border: `1px solid ${BORDER}`, overflow: "hidden" }}>
+                <Table>
+                  <TableHead sx={{ backgroundColor: "#f8fafc" }}>
+                    <TableRow>
+                      {["Name", "Type", "Impact", "Start", "End"].map((h) => (
+                        <TableCell
+                          key={h}
+                          sx={{ fontSize: 14, fontWeight: 600, color: SLATE_500, py: 2.25, border: 0 }}
+                        >
+                          {h}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {selectedEvents
+                      .slice(
+                        reviewEventsPage * reviewEventsRowsPerPage,
+                        reviewEventsPage * reviewEventsRowsPerPage + reviewEventsRowsPerPage
+                      )
+                      .map((ev) => (
+                      <TableRow key={ev.id} sx={{ "&:hover": { backgroundColor: BG_SOFT } }}>
+                        <TableCell sx={{ py: 2.5, fontWeight: 500, borderTop: `1px solid #edf2f7` }}>
+                          {ev.name}
+                        </TableCell>
+                        <TableCell sx={{ py: 2.5, fontWeight: 500, borderTop: `1px solid #edf2f7` }}>
+                          {ev.type}
+                        </TableCell>
+                        <TableCell sx={{ py: 2.5, fontWeight: 500, borderTop: `1px solid #edf2f7` }}>
+                          <Chip
+                            size="small"
+                            label={ev.impact}
+                            color={
+                              ev.impact === "High" ? "error" : ev.impact === "Low" ? "default" : "warning"
+                            }
+                          />
+                        </TableCell>
+                        <TableCell sx={{ py: 2.5, fontWeight: 500, borderTop: `1px solid #edf2f7` }}>
+                          {ev.startDate}
+                        </TableCell>
+                        <TableCell sx={{ py: 2.5, fontWeight: 500, borderTop: `1px solid #edf2f7` }}>
+                          {ev.endDate}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <TablePagination
+                  component="div"
+                  count={selectedEvents.length}
+                  page={reviewEventsPage}
+                  onPageChange={(_, newPage) => setReviewEventsPage(newPage)}
+                  rowsPerPage={reviewEventsRowsPerPage}
+                  onRowsPerPageChange={(e) => {
+                    setReviewEventsRowsPerPage(parseInt(e.target.value, 10));
+                    setReviewEventsPage(0);
+                  }}
+                  rowsPerPageOptions={[5, 10, 25, 50]}
+                  sx={{ borderTop: `1px solid ${BORDER}` }}
+                />
+              </TableContainer>
+            </Card>
+          )}
+        </Stack>
+      </Box>
     );
   };
 
@@ -1200,13 +1998,28 @@ const UnifiedOnboardingPage = () => {
             ))}
           </Stepper>
 
-          <form onSubmit={handleSubmit(onSubmit)}>
+          <form
+            noValidate
+            onSubmit={(event) => {
+              // The form is never auto-submitted. The user must click the
+              // explicit "Submit All" button on the last review step.
+              event.preventDefault();
+            }}
+            onKeyDown={(event) => {
+              // Prevent the browser's implicit form submission when the user
+              // presses Enter in any text field on any step.
+              if (event.key === "Enter" && event.target.tagName !== "TEXTAREA") {
+                event.preventDefault();
+              }
+            }}
+          >
             <Stack spacing={2.5}>
               <Box sx={{ display: activeStep === 0 ? "block" : "none" }}>{renderPropertyStep()}</Box>
               <Box sx={{ display: activeStep === 1 ? "block" : "none" }}>{renderPortfolioStep()}</Box>
               <Box sx={{ display: activeStep === 2 ? "block" : "none" }}>{renderEventsStep()}</Box>
-              <Box sx={{ display: activeStep === 3 ? "block" : "none" }}>{renderPmsDetailsStep()}</Box>
-              <Box sx={{ display: activeStep === 4 ? "block" : "none" }}>{renderReviewStep()}</Box>
+              <Box sx={{ display: activeStep === 3 ? "block" : "none" }}>{renderRateCodesStep()}</Box>
+              <Box sx={{ display: activeStep === 4 ? "block" : "none" }}>{renderPmsDetailsStep()}</Box>
+              <Box sx={{ display: activeStep === 5 ? "block" : "none" }}>{renderReviewStep()}</Box>
 
               <Divider />
               <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} justifyContent="space-between">
@@ -1232,7 +2045,12 @@ const UnifiedOnboardingPage = () => {
                   {activeStep < steps.length - 1 ? (
                     <Button variant="contained" onClick={handleNext}>Next</Button>
                   ) : (
-                    <Button variant="contained" type="submit" disabled={isSubmitting || loading}>
+                    <Button
+                      variant="contained"
+                      type="button"
+                      onClick={handleSubmit(onSubmit)}
+                      disabled={isSubmitting || loading}
+                    >
                       Submit All
                     </Button>
                   )}

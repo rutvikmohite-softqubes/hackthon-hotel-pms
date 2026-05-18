@@ -210,4 +210,5 @@ export const unifiedOnboardingDefaults = {
   pmsUsername: "",
   pmsPassword: "",
   pmsTwilioNumber: "",
+  totalInventory: "",
 };
